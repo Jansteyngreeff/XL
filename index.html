@@ -6,6 +6,10 @@
     <title>XL PTY Customer & Business Operations Journey Map</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2canvas for capturing HTML as image -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF for generating PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -14,25 +18,35 @@
         .journey-grid-container {
             overflow-x: auto; /* Added for horizontal scrolling */
             padding-bottom: 1rem; /* Add some padding for the scrollbar */
+            max-height: calc(100vh - 200px); /* Adjust based on header/footer space */
+            overflow-y: auto; /* Allow vertical scrolling if content is too tall */
         }
         .journey-grid {
             display: grid;
-            grid-template-columns: 200px repeat(7, minmax(150px, 1fr)); /* Label column + 7 stages */
+            /* Adjusted grid-template-columns for better responsiveness:
+               - First column (labels): fixed 200px
+               - Remaining 7 columns: minmax(120px, 1fr) - reduced min-width to 120px
+                 to allow columns to shrink more on smaller screens, while still
+                 distributing available space with 1fr. */
+            grid-template-columns: 200px repeat(7, minmax(120px, 1fr));
             gap: 1px; /* Small gap for grid lines */
             background-color: #e0e0e0; /* Grid line color */
             border-radius: 0.75rem; /* rounded-xl */
             overflow: hidden; /* Ensures rounded corners are applied */
-            min-width: 1200px; /* Ensure content doesn't shrink too much */
+            /* Removed min-width here to let the grid naturally adjust to columns' min-width
+               and rely on overflow-x: auto from container for scrolling if needed. */
         }
         .grid-header, .grid-cell {
             padding: 1rem;
             background-color: #ffffff;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
+            align-items: flex-start; /* Align content to the top */
+            justify-content: flex-start; /* Align content to the left */
+            text-align: left; /* Ensure text aligns left */
             font-size: 0.875rem; /* text-sm */
             position: relative; /* For tooltip and button positioning */
+            word-wrap: break-word; /* Ensure long words break */
+            white-space: normal; /* Allow text to wrap */
         }
         .grid-header {
             background-color: #4a0e4a; /* Dark purple for headers */
@@ -40,13 +54,24 @@
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            justify-content: center; /* Keep headers centered */
+            text-align: center; /* Keep headers centered */
+            /* Ensure headers also wrap text */
+            word-wrap: break-word;
+            white-space: normal;
         }
         .lane-header {
             background-color: #6a1b9a; /* Slightly lighter purple for lane headers */
             color: white;
             font-weight: bold;
-            justify-content: flex-start;
-            padding-left: 1.5rem;
+            /* Centered the lane headers */
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding-left: 0; /* Remove left padding as it's centered now */
+            /* Ensure lane headers also wrap text */
+            word-wrap: break-word;
+            white-space: normal;
         }
         .customer-row-header, .business-row-header {
             background-color: #f3e5f5; /* Light purple for row headers */
@@ -69,15 +94,17 @@
             font-weight: bold;
             flex-direction: column; /* Allow content and button to stack */
             justify-content: space-between; /* Push button to bottom */
-            align-items: center;
+            align-items: flex-start; /* Align content to the left */
         }
         .opportunity-content {
             flex-grow: 1; /* Allow content to take available space */
             display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
+            align-items: flex-start; /* Align content to the top */
+            justify-content: flex-start; /* Align content to the left */
+            text-align: left; /* Ensure text aligns left */
             width: 100%;
+            word-wrap: break-word; /* Ensure long words break */
+            white-space: normal; /* Allow text to wrap */
         }
         .elaborate-button {
             background-color: #8e24aa; /* Darker purple for button */
@@ -91,6 +118,7 @@
             display: flex;
             align-items: center;
             gap: 0.25rem;
+            align-self: center; /* Center the button within the column flex container */
         }
         .elaborate-button:hover {
             background-color: #6a1b9a; /* Lighter purple on hover */
@@ -181,6 +209,27 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .export-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .export-button {
+            background-color: #4a0e4a;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .export-button:hover {
+            background-color: #6a1b9a;
+        }
     </style>
 </head>
 <body class="p-8">
@@ -191,6 +240,11 @@
             and the corresponding internal business operations that support each stage. Click the ✨ button on any
             "Opportunity for Improvement" to get an AI-powered elaboration!
         </p>
+
+        <div class="export-buttons">
+            <button class="export-button" onclick="exportAsImage()">Export as PNG</button>
+            <button class="export-button" onclick="exportAsPdf()">Export as PDF</button>
+        </div>
 
         <div class="journey-grid-container">
             <div id="journeyMap" class="journey-grid">
@@ -256,7 +310,7 @@
                             "Long wait times, multiple handoffs, unresolved issues.",
                             "Feeling neglected, not seeing ongoing value, competitive offers."
                         ]},
-                        { id: "goals", name: "Goals", data: [
+                        { id: "goals", name: "Goals", data: [ // Corrected 'name' to be a string
                             "Understand if XL PTY offers solutions for their business.",
                             "Evaluate XL PTY's capabilities against their needs.",
                             "Secure a reliable payment solution partner.",
@@ -321,6 +375,7 @@
             ]
         };
 
+        // Get references to modal elements
         const modal = document.getElementById('aiElaborationModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalContent = document.getElementById('modalContent');
@@ -331,53 +386,7 @@
             </div>
         `;
 
-        function openModal() {
-            modal.classList.add('open');
-        }
-
-        function closeModal() {
-            modal.classList.remove('open');
-            modalContent.innerHTML = loadingIndicatorHtml; // Reset content to loading indicator
-            modalTitle.textContent = "Elaborating Opportunity...";
-        }
-
-        async function elaborateOpportunity(opportunityText) {
-            openModal();
-            modalTitle.textContent = `Elaborating on: "${opportunityText}"`;
-            modalContent.innerHTML = loadingIndicatorHtml; // Show loading indicator
-
-            try {
-                let chatHistory = [];
-                const prompt = `Elaborate on the following business improvement opportunity for a payment solutions company like XL PTY. Provide actionable steps, potential benefits, and key considerations. The opportunity is: "${opportunityText}"`;
-                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-
-                const payload = { contents: chatHistory };
-                const apiKey = ""; // Canvas will provide this at runtime
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const text = result.candidates[0].content.parts[0].text;
-                    modalContent.innerHTML = `<p class="whitespace-pre-wrap">${text}</p>`; // Use pre-wrap to preserve formatting
-                } else {
-                    modalContent.innerHTML = '<p class="text-red-500">Error: Could not generate elaboration. Please try again.</p>';
-                    console.error('Gemini API response structure unexpected:', result);
-                }
-            } catch (error) {
-                modalContent.innerHTML = `<p class="text-red-500">Error: ${error.message}. Failed to connect to the AI service.</p>`;
-                console.error('Error calling Gemini API:', error);
-            }
-        }
-
+        // Function to render the journey map (moved to top for clarity and scope)
         function renderJourneyMap() {
             const journeyMapContainer = document.getElementById('journeyMap');
             journeyMapContainer.innerHTML = ''; // Clear existing content
@@ -454,6 +463,202 @@
                     });
                 });
             });
+        }
+
+        // Modal functions
+        function openModal() {
+            modal.classList.add('open');
+        }
+
+        function closeModal() {
+            modal.classList.remove('open');
+            modalContent.innerHTML = loadingIndicatorHtml; // Reset content to loading indicator
+            modalTitle.textContent = "Elaborating Opportunity...";
+        }
+
+        // Gemini API call function
+        async function elaborateOpportunity(opportunityText) {
+            openModal();
+            modalTitle.textContent = `Elaborating on: "${opportunityText}"`;
+            modalContent.innerHTML = loadingIndicatorHtml; // Show loading indicator
+
+            try {
+                let chatHistory = [];
+                const prompt = `Elaborate on the following business improvement opportunity for a payment solutions company like XL PTY. Provide actionable steps, potential benefits, and key considerations. The opportunity is: "${opportunityText}"`;
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Canvas will provide this at runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    modalContent.innerHTML = `<p class="whitespace-pre-wrap">${text}</p>`; // Use pre-wrap to preserve formatting
+                } else {
+                    modalContent.innerHTML = '<p class="text-red-500">Error: Could not generate elaboration. Please try again.</p>';
+                    console.error('Gemini API response structure unexpected:', result);
+                }
+            } catch (error) {
+                modalContent.innerHTML = `<p class="text-red-500">Error: ${error.message}. Failed to connect to the AI service.</p>`;
+                console.error('Error calling Gemini API:', error);
+            }
+        }
+
+        // Export functions
+        async function exportAsImage() {
+            const exportContainer = document.querySelector('.journey-grid-container');
+            const originalScrollX = exportContainer.scrollLeft;
+            const originalScrollY = exportContainer.scrollTop;
+
+            // Store original styles
+            const originalWidth = exportContainer.style.width;
+            const originalHeight = exportContainer.style.height;
+            const originalOverflowX = exportContainer.style.overflowX;
+            const originalOverflowY = exportContainer.style.overflowY;
+
+            // Temporarily expand container to capture full content
+            exportContainer.style.width = `${exportContainer.scrollWidth}px`;
+            exportContainer.style.height = `${exportContainer.scrollHeight}px`;
+            exportContainer.style.overflowX = 'visible';
+            exportContainer.style.overflowY = 'visible';
+
+            // Temporarily scroll to top-left to ensure full capture
+            exportContainer.scrollLeft = 0;
+            exportContainer.scrollTop = 0;
+
+            // Show a loading message
+            const exportButtons = document.querySelector('.export-buttons');
+            const loadingSpan = document.createElement('span');
+            loadingSpan.id = 'exportLoading';
+            loadingSpan.className = 'loading-indicator ml-4';
+            loadingSpan.innerHTML = '<div class="spinner w-5 h-5"></div> Generating image...';
+            exportButtons.appendChild(loadingSpan);
+
+            try {
+                const canvas = await html2canvas(exportContainer, {
+                    scale: 2, // Increase scale for better resolution
+                    useCORS: true, // If you have external images, enable CORS
+                    // Capture the entire element, not just the visible part
+                    width: exportContainer.scrollWidth,
+                    height: exportContainer.scrollHeight,
+                    x: exportContainer.scrollLeft,
+                    y: exportContainer.scrollTop
+                });
+
+                const image = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.href = image;
+                link.download = 'xl_pty_journey_map.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (error) {
+                console.error("Error exporting as image:", error);
+                alert("Failed to export image. Please try again.");
+            } finally {
+                // Restore original styles
+                exportContainer.style.width = originalWidth;
+                exportContainer.style.height = originalHeight;
+                exportContainer.style.overflowX = originalOverflowX;
+                exportContainer.style.overflowY = originalOverflowY;
+
+                // Restore original scroll position
+                exportContainer.scrollLeft = originalScrollX;
+                exportContainer.scrollTop = originalScrollY;
+                if (loadingSpan.parentNode) {
+                    loadingSpan.parentNode.removeChild(loadingSpan);
+                }
+            }
+        }
+
+        async function exportAsPdf() {
+            const exportContainer = document.querySelector('.journey-grid-container');
+            const originalScrollX = exportContainer.scrollLeft;
+            const originalScrollY = exportContainer.scrollTop;
+
+            // Store original styles
+            const originalWidth = exportContainer.style.width;
+            const originalHeight = exportContainer.style.height;
+            const originalOverflowX = exportContainer.style.overflowX;
+            const originalOverflowY = exportContainer.style.overflowY;
+
+            // Temporarily expand container to capture full content
+            exportContainer.style.width = `${exportContainer.scrollWidth}px`;
+            exportContainer.style.height = `${exportContainer.scrollHeight}px`;
+            exportContainer.style.overflowX = 'visible';
+            exportContainer.style.overflowY = 'visible';
+
+            // Temporarily scroll to top-left to ensure full capture
+            exportContainer.scrollLeft = 0;
+            exportContainer.scrollTop = 0;
+
+            // Show a loading message
+            const exportButtons = document.querySelector('.export-buttons');
+            const loadingSpan = document.createElement('span');
+            loadingSpan.id = 'exportLoading';
+            loadingSpan.className = 'loading-indicator ml-4';
+            loadingSpan.innerHTML = '<div class="spinner w-5 h-5"></div> Generating PDF...';
+            exportButtons.appendChild(loadingSpan);
+
+            try {
+                const canvas = await html2canvas(exportContainer, {
+                    scale: 2, // Increase scale for better resolution
+                    useCORS: true,
+                    // Capture the entire element, not just the visible part
+                    width: exportContainer.scrollWidth,
+                    height: exportContainer.scrollHeight,
+                    x: exportContainer.scrollLeft,
+                    y: exportContainer.scrollTop
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('l', 'pt', 'a4'); // 'l' for landscape, 'pt' for points, 'a4' size
+
+                const imgWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                pdf.save('xl_pty_journey_map.pdf');
+            } catch (error) {
+                console.error("Error exporting as PDF:", error);
+                alert("Failed to export PDF. Please try again.");
+            } finally {
+                // Restore original styles
+                exportContainer.style.width = originalWidth;
+                exportContainer.style.height = originalHeight;
+                exportContainer.style.overflowX = originalOverflowX;
+                exportContainer.style.overflowY = originalOverflowY;
+
+                // Restore original scroll position
+                exportContainer.scrollLeft = originalScrollX;
+                exportContainer.scrollTop = originalScrollY;
+                if (loadingSpan.parentNode) {
+                    loadingSpan.parentNode.removeChild(loadingSpan);
+                }
+            }
         }
 
         // Render the map when the DOM is fully loaded
