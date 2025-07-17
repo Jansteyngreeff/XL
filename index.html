@@ -25,16 +25,15 @@
             display: grid;
             /* Adjusted grid-template-columns for better responsiveness:
                - First column (labels): fixed 200px
-               - Remaining 7 columns: minmax(120px, 1fr) - reduced min-width to 120px
+               - Remaining 7 columns: minmax(130px, 1fr) - Reduced min-width to 130px
                  to allow columns to shrink more on smaller screens, while still
                  distributing available space with 1fr. */
-            grid-template-columns: 200px repeat(7, minmax(120px, 1fr));
+            grid-template-columns: 200px repeat(7, minmax(130px, 1fr));
             gap: 1px; /* Small gap for grid lines */
             background-color: #e0e0e0; /* Grid line color */
             border-radius: 0.75rem; /* rounded-xl */
             overflow: hidden; /* Ensures rounded corners are applied */
-            /* Removed min-width here to let the grid naturally adjust to columns' min-width
-               and rely on overflow-x: auto from container for scrolling if needed. */
+            min-width: 1400px; /* Increased min-width to ensure horizontal scrolling is always available */
         }
         .grid-header, .grid-cell {
             padding: 1rem;
@@ -43,7 +42,7 @@
             align-items: flex-start; /* Align content to the top */
             justify-content: flex-start; /* Align content to the left */
             text-align: left; /* Ensure text aligns left */
-            font-size: 0.875rem; /* text-sm */
+            font-size: 0.75rem; /* text-xs: Made all general cell text smaller */
             position: relative; /* For tooltip and button positioning */
             word-wrap: break-word; /* Ensure long words break */
             white-space: normal; /* Allow text to wrap */
@@ -56,9 +55,13 @@
             letter-spacing: 0.05em;
             justify-content: center; /* Keep headers centered */
             text-align: center; /* Keep headers centered */
-            /* Ensure headers also wrap text */
+            /* Ensure headers also wrap text - explicit properties */
             word-wrap: break-word;
             white-space: normal;
+            word-break: break-word; /* More aggressive word breaking for headers */
+            display: flex; /* Ensure flex properties apply */
+            align-items: center; /* Vertically center header text */
+            font-size: 0.7rem; /* Even smaller for top headers to fit more */
         }
         .lane-header {
             background-color: #6a1b9a; /* Slightly lighter purple for lane headers */
@@ -230,6 +233,20 @@
         .export-button:hover {
             background-color: #6a1b9a;
         }
+        .company-input-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            gap: 0.5rem;
+        }
+        .company-input {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ccc;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+            width: 250px;
+        }
     </style>
 </head>
 <body class="p-8">
@@ -240,6 +257,11 @@
             and the corresponding internal business operations that support each stage. Click the ✨ button on any
             "Opportunity for Improvement" to get an AI-powered elaboration!
         </p>
+
+        <div class="company-input-group">
+            <label for="companyNameInput" class="font-bold text-gray-700">Company Name:</label>
+            <input type="text" id="companyNameInput" class="company-input" value="XL PTY" placeholder="Enter company name">
+        </div>
 
         <div class="export-buttons">
             <button class="export-button" onclick="exportAsImage()">Export as PNG</button>
@@ -268,15 +290,16 @@
     </div>
 
     <script>
-        const journeyMapData = {
+        // Define initial journey map data
+        const initialJourneyMapData = {
             stages: [
                 { name: "Awareness", description: "How potential clients first learn about XL PTY." },
                 { name: "Consideration", description: "Potential clients explore XL PTY's offerings." },
-                { name: "Decision/Engagement", description: "Client decides to work with XL PTY." },
+                { name: "Decision / Engagement", description: "Client decides to work with XL PTY." },
                 { name: "Onboarding", description: "Integrating the new client into XL PTY's ecosystem." },
                 { name: "Service Usage", description: "Ongoing interaction with services and solutions." },
                 { name: "Support & Problem Resolution", description: "Addressing issues and providing help." },
-                { name: "Retention/Renewal", description: "Maintaining long-term client relationships." }
+                { name: "Retention / Renewal", description: "Maintaining long-term client relationships." }
             ],
             lanes: [
                 {
@@ -284,7 +307,7 @@
                     name: "Customer Experience",
                     rows: [
                         { id: "actions", name: "Actions", data: [
-                            "Sees XL PTY ad, hears from peer",
+                            "Sees COMPANY_NAME ad, hears from peer",
                             "Visits website, downloads catalogue, reads case studies",
                             "Submits enquiry, takes sales call, reviews proposal",
                             "Provides info, engages in technical setup, attends training",
@@ -310,9 +333,9 @@
                             "Long wait times, multiple handoffs, unresolved issues.",
                             "Feeling neglected, not seeing ongoing value, competitive offers."
                         ]},
-                        { id: "goals", name: "Goals", data: [ // Corrected 'name' to be a string
-                            "Understand if XL PTY offers solutions for their business.",
-                            "Evaluate XL PTY's capabilities against their needs.",
+                        { id: "goals", name: "Goals", data: [
+                            "Understand if COMPANY_NAME offers solutions for their business.",
+                            "Evaluate COMPANY_NAME's capabilities against their needs.",
                             "Secure a reliable payment solution partner.",
                             "Get the solution fully operational.",
                             "Seamless, secure, and efficient payment processing.",
@@ -323,7 +346,7 @@
                 },
                 {
                     id: "business",
-                    name: "XL PTY Operations",
+                    name: "COMPANY_NAME Operations", // Placeholder for dynamic name
                     rows: [
                         { id: "department", name: "Department/Team", data: [
                             "Product & Marketing",
@@ -375,10 +398,13 @@
             ]
         };
 
+        let currentCompanyName = "XL PTY"; // Global variable for the company name
+
         // Get references to modal elements
         const modal = document.getElementById('aiElaborationModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalContent = document.getElementById('modalContent');
+        const companyNameInput = document.getElementById('companyNameInput');
         const loadingIndicatorHtml = `
             <div class="loading-indicator">
                 <div class="spinner"></div>
@@ -386,7 +412,7 @@
             </div>
         `;
 
-        // Function to render the journey map (moved to top for clarity and scope)
+        // Function to render the journey map
         function renderJourneyMap() {
             const journeyMapContainer = document.getElementById('journeyMap');
             journeyMapContainer.innerHTML = ''; // Clear existing content
@@ -397,7 +423,7 @@
             journeyMapContainer.appendChild(cornerCell);
 
             // Add stage headers
-            journeyMapData.stages.forEach(stage => {
+            initialJourneyMapData.stages.forEach(stage => {
                 const stageHeader = document.createElement('div');
                 stageHeader.className = 'grid-header';
                 stageHeader.textContent = stage.name;
@@ -406,13 +432,13 @@
             });
 
             // Add lanes and their rows
-            journeyMapData.lanes.forEach(lane => {
+            initialJourneyMapData.lanes.forEach(lane => {
                 // Add lane header (e.g., "Customer Experience", "XL PTY Operations")
                 const laneHeader = document.createElement('div');
                 laneHeader.className = 'lane-header col-span-full'; // Spans across all columns
-                laneHeader.textContent = lane.name;
-                // Adjust grid-template-columns to account for col-span-full
-                laneHeader.style.gridColumn = `span ${journeyMapData.stages.length + 1}`;
+                // Replace placeholder with current company name in lane header
+                laneHeader.textContent = lane.name.replace(/COMPANY_NAME/g, currentCompanyName);
+                laneHeader.style.gridColumn = `span ${initialJourneyMapData.stages.length + 1}`;
                 journeyMapContainer.appendChild(laneHeader);
 
                 lane.rows.forEach(row => {
@@ -423,10 +449,13 @@
                     journeyMapContainer.appendChild(rowHeader);
 
                     // Add data cells for each stage
-                    journeyMapData.stages.forEach((stage, stageIndex) => {
+                    initialJourneyMapData.stages.forEach((stage, stageIndex) => {
                         const cell = document.createElement('div');
                         cell.className = `grid-cell ${lane.id}-cell relative`;
-                        const content = row.data[stageIndex] || '';
+                        let content = row.data[stageIndex] || '';
+
+                        // Replace placeholder with current company name in cell content
+                        content = content.replace(/COMPANY_NAME/g, currentCompanyName);
 
                         // Check for pain points and opportunities and style them
                         if (row.id === 'painPoints' && content) {
@@ -484,7 +513,7 @@
 
             try {
                 let chatHistory = [];
-                const prompt = `Elaborate on the following business improvement opportunity for a payment solutions company like XL PTY. Provide actionable steps, potential benefits, and key considerations. The opportunity is: "${opportunityText}"`;
+                const prompt = `Elaborate on the following business improvement opportunity for a payment solutions company like ${currentCompanyName}. Provide actionable steps, potential benefits, and key considerations. The opportunity is: "${opportunityText}"`;
                 chatHistory.push({ role: "user", parts: [{ text: prompt }] });
 
                 const payload = { contents: chatHistory };
@@ -558,7 +587,7 @@
                 const image = canvas.toDataURL('image/png');
                 const link = document.createElement('a');
                 link.href = image;
-                link.download = 'xl_pty_journey_map.png';
+                link.download = `${currentCompanyName.replace(/\s/g, '_')}_journey_map.png`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -641,7 +670,7 @@
                     heightLeft -= pageHeight;
                 }
 
-                pdf.save('xl_pty_journey_map.pdf');
+                pdf.save(`${currentCompanyName.replace(/\s/g, '_')}_journey_map.pdf`);
             } catch (error) {
                 console.error("Error exporting as PDF:", error);
                 alert("Failed to export PDF. Please try again.");
@@ -660,6 +689,12 @@
                 }
             }
         }
+
+        // Event listener for company name input
+        companyNameInput.addEventListener('input', (event) => {
+            currentCompanyName = event.target.value || "XL PTY"; // Fallback to "XL PTY" if empty
+            renderJourneyMap(); // Re-render the map with the new company name
+        });
 
         // Render the map when the DOM is fully loaded
         document.addEventListener('DOMContentLoaded', renderJourneyMap);
